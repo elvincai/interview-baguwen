@@ -57,8 +57,8 @@
 - [singleflight到底该怎么用才对](https://www.cyningsun.com/01-11-2021/golang-concurrency-singleflight.html)
 
 singlefligt的使用注意点：
-- 阻塞读：缺少超时控制，没法快速失败---使用DoChan替代Do,通过channel返回结果，结合select实现超时控制
-- 单并发：控制了并发量，牺牲了成功率---使用Forget提高下游并发请求
+- 阻塞读：缺少超时控制，没法快速失败---使用DoChan替代Do,通过channel返回结果，结合select实现超时控制 
+- 单并发：控制了并发量，牺牲了成功率---使用Forget提高下游并发请求 或者 使用key:= key + randN(100)来控制
 
 ```
 ch := g.DoChan(key, func() (interface{}, error) {
