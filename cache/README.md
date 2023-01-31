@@ -53,6 +53,44 @@
 - 第一个是负载均衡算法结合 singleflight
 - 第二个是分布式锁。严格来说，分布式锁的方案，我一点都不喜欢，毫无技术含量
 
+#### singleflight
+- [singleflight到底该怎么用才对](https://www.cyningsun.com/01-11-2021/golang-concurrency-singleflight.html)
+
+singlefligt的使用注意点：
+- 阻塞读：缺少超时控制，没法快速失败---使用DoChan替代Do,通过channel返回结果，结合select实现超时控制
+- 单并发：控制了并发量，牺牲了成功率---使用Forget提高下游并发请求
+
+```
+ch := g.DoChan(key, func() (interface{}, error) {
+    ret, err := find(context.Background(), key)
+    return ret, err
+})
+// Create our timeout
+timeout := time.After(500 * time.Millisecond)
+
+var ret singleflight.Result
+select {
+case <-timeout: // Timeout elapsed
+        fmt.Println("Timeout")
+    return
+case ret = <-ch: // Received result from channel
+    fmt.Printf("index: %d, val: %v, shared: %v\n", j, ret.Val, ret.Shared)
+}
+```
+
+```
+v, _, shared := g.Do(key, func() (interface{}, error) {
+    go func() {
+        time.Sleep(10 * time.Millisecond)
+        fmt.Printf("Deleting key: %v\n", key)
+        g.Forget(key)
+    }()
+    ret, err := find(context.Background(), key)
+    return ret, err
+})
+```
+
+
 第一个方案，稍微有点奇诡。我们可以考虑对 key 采用哈希一致性算法来作为负载均衡算法，那么我们可以确保，同一个 key 的请求，永远会落到同一台实例上。然后结合单机 singleflight，那么可以确保永远只有一个线程更新缓存或者 DB，自然就不存在一致性问题了。
 
 这个方案要注意的是在哈希一致性算法因为扩容，或者缩容，或者重新部署，导致 key 迁移到别的机器上的时候，会出现问题。假设请求1、2都操作同一个 key：
